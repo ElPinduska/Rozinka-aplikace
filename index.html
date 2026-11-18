@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rozinčina aplikace</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#ec4899" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .tab-active { color: #db2777; border-top: 3px solid #db2777; font-weight: 700; }
+  </style>
+</head>
+<body class="bg-pink-50 text-slate-800 pb-24 select-none">
+
+  <!-- HLAVIČKA -->
+  <header class="bg-gradient-to-r from-pink-500 to-purple-600 text-white p-4 shadow-md sticky top-0 z-20 flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">✨ Rozinčina aplikace</h1>
+      <p class="text-xs text-pink-100" id="syncStatus">Lokální režim (nastav GitHub v ⚙️)</p>
+    </div>
+    <button onclick="openSettings()" class="bg-white/20 hover:bg-white/30 p-2 rounded-full text-lg" title="Nastavení">⚙️</button>
+  </header>
+
+  <!-- HLAVNÍ OBSAH -->
+  <main class="max-w-lg mx-auto p-4 space-y-5">
+
+    <!-- SEKCE 1: BLBOVNÍK & KALENDÁŘ -->
+    <section id="sec-blbovnik" class="space-y-4">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 space-y-3">
+        <h2 class="font-bold text-lg text-pink-700">📔 Nová myšlenka / Upomínka</h2>
+        <input id="noteTitle" type="text" placeholder="Co máš na srdci nebo co nezapomenout?" class="w-full p-3 rounded-xl border border-slate-200 focus:outline-pink-500 text-sm" />
+        <textarea id="noteText" rows="2" placeholder="Podrobnosti, poznámky..." class="w-full p-3 rounded-xl border border-slate-200 focus:outline-pink-500 text-sm"></textarea>
+        <div class="flex gap-2 items-center">
+          <input id="noteDate" type="datetime-local" class="flex-1 p-2.5 rounded-xl border border-slate-200 text-xs" />
+          <button onclick="addNote()" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm shadow">Uložit</button>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center px-1">
+        <h3 class="font-bold text-slate-700">📅 Kalendář & Zápisky</h3>
+        <button onclick="syncWithGitHub()" class="text-xs bg-purple-100 text-purple-700 font-semibold px-3 py-1.5 rounded-lg">🔄 Sync GitHub</button>
+      </div>
+      <div id="notesList" class="space-y-3"></div>
+    </section>
+
+    <!-- SEKCE 2: ÚKOLY OD TAŤKY -->
+    <section id="sec-ukoly" class="hidden space-y-4">
+      <!-- Přepínač Rozinka / Taťka -->
+      <div class="bg-white p-1.5 rounded-2xl shadow-sm flex border border-purple-100">
+        <button id="btnRoleDaughter" onclick="switchRole('daughter')" class="flex-1 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white">👧 Rozinka</button>
+        <button id="btnRoleDad" onclick="requestDadMode()" class="flex-1 py-2 rounded-xl text-sm font-bold text-slate-600">👨 Taťkova zóna</button>
+      </div>
+
+      <!-- REŽIM ROZINKA -->
+      <div id="daughterView" class="space-y-4">
+        <div id="tasksList" class="space-y-3"></div>
+        <!-- Aktivní kvíz -->
+        <div id="quizBox" class="hidden bg-white p-5 rounded-2xl shadow-md border border-purple-200 space-y-4">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h3 id="quizTitle" class="font-bold text-purple-700"></h3>
+            <button onclick="closeQuiz()" class="text-xs text-slate-400">Zavřít ✕</button>
+          </div>
+          <div id="quizQuestions" class="space-y-5"></div>
+          <button onclick="submitQuiz()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow">Odevzdat a vyhodnotit ✅</button>
+        </div>
+        <!-- Výsledek kvízu -->
+        <div id="quizResult" class="hidden bg-white p-5 rounded-2xl shadow-md border-2 border-green-400 space-y-3"></div>
+      </div>
+
+      <!-- REŽIM TAŤKA -->
+      <div id="dadView" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-purple-200 space-y-4">
+        <h2 class="font-bold text-lg text-purple-800">📸 Nový úkol z učebnice</h2>
+        <p class="text-xs text-slate-500">Vyfoť stránku v učebnici a AI z ní vybere náhodné otázky pro Rozinku.</p>
+        
+        <input id="taskSubject" type="text" placeholder="Předmět / Téma (např. Přírodopis - Savci)" class="w-full p-3 rounded-xl border border-slate-200 text-sm" />
+        
+        <div class="flex items-center justify-between gap-3">
+          <label class="text-sm font-medium text-slate-700">Počet otázek:</label>
+          <select id="questionCount" class="p-2.5 rounded-xl border border-slate-200 text-sm font-semibold">
+            <option value="3">3 otázky</option>
+            <option value="5" selected>5 otázek</option>
+            <option value="8">8 otázek</option>
+          </select>
+        </div>
+
+        <label class="block w-full border-2 border-dashed border-purple-300 rounded-2xl p-5 text-center cursor-pointer hover:bg-purple-50 transition">
+          <span class="text-2xl block mb-1">📷</span>
+          <span class="text-sm font-semibold text-purple-700" id="photoLabel">Vyfotit učebnici nebo vybrat obrázek</span>
+          <input id="textbookPhoto" type="file" accept="image/*" capture="environment" class="hidden" onchange="previewPhoto(event)" />
+        </label>
+        <img id="photoPreview" class="hidden w-full max-h-56 object-contain rounded-xl border" />
+
+        <button id="btnGenerate" onclick="generateTaskFromPhoto()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow">✨ Vygenerovat úkol přes AI</button>
+        
+        <div id="generatedPreview" class="hidden space-y-3 pt-3 border-t">
+          <h4 class="font-bold text-sm text-green-700">Náhled vygenerovaných otázek:</h4>
+          <div id="previewQuestionsList" class="space-y-2 text-xs"></div>
+          <button onclick="saveGeneratedTask()" class="w-full bg-pink-600 text-white font-bold py-3 rounded-xl shadow">📤 Uložit a poslat Rozince</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SPODNÍ NAVIGACE -->
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 flex justify-around shadow-lg z-20">
+    <button id="nav-blbovnik" onclick="switchTab('blbovnik')" class="flex-1 py-3 text-center text-sm tab-active">📔 Blbovník</button>
+    <button id="nav-ukoly" onclick="switchTab('ukoly')" class="flex-1 py-3 text-center text-sm text-slate-500">🎓 Úkoly od taťky <span id="newBadge" class="hidden bg-pink-600 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">!</span></button>
+  </nav>
+
+  <!-- MODAL NASTAVENÍ (API KLÍČE + GITHUB + PIN) -->
+  <div id="settingsModal" class="hidden fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-lg">⚙️ Nastavení aplikace</h3>
+        <button onclick="closeSettings()" class="text-slate-400 text-lg">✕</button>
+      </div>
+      
+      <div>
+        <label class="text-xs font-bold text-slate-600">Gemini API klíč (pro čtení učebnic):</label>
+        <input id="cfgGeminiKey" type="password" placeholder="AIzaSy..." class="w-full p-2.5 rounded-xl border text-xs mt-1" />
+      </div>
+
+      <div class="border-t pt-2 space-y-2">
+        <p class="text-xs font-bold text-purple-700">🐙 Propojení s GitHubem (záloha & sdílení úkolů):</p>
+        <input id="cfgGhOwner" type="text" placeholder="GitHub uživatelské jméno (např. tatka123)" class="w-full p-2.5 rounded-xl border text-xs" />
+        <input id="cfgGhRepo" type="text" placeholder="Název repozitáře (např. rozincina-aplikace)" class="w-full p-2.5 rounded-xl border text-xs" />
+        <input id="cfgGhToken" type="password" placeholder="GitHub Personal Access Token (ghp_...)" class="w-full p-2.5 rounded-xl border text-xs" />
+      </div>
+
+      <div class="border-t pt-2">
+        <label class="text-xs font-bold text-slate-600">PIN pro taťkovu zónu:</label>
+        <input id="cfgPin" type="text" maxlength="6" placeholder="1234" class="w-full p-2.5 rounded-xl border text-xs mt-1" />
+      </div>
+
+      <button onclick="saveSettings()" class="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl text-sm">Uložit nastavení</button>
+    </div>
+  </div>
+
+  <script>
+    // --- STAV APLIKACE ---
+    let state = {
+      notes: JSON.parse(localStorage.getItem('rozinka_notes') || '[]'),
+      tasks: JSON.parse(localStorage.getItem('rozinka_tasks') || '[]'),
+      config: JSON.parse(localStorage.getItem('rozinka_cfg') || '{"pin":"1234"}')
+    };
+    let draftTask = null;
+    let activeQuizTask = null;
+    let base64Image = null;
+
+    // --- REGISTRACE PWA ---
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // --- NOTIFIKACE UPOMÍNEK ---
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    setInterval(() => {
+      const now = new Date();
+      state.notes.forEach(n => {
+        if (n.date && !n.notified && new Date(n.date) <= now) {
+          n.notified = true;
+          saveLocal();
+          if (Notification.permission === 'granted') {
+            new Notification('⏰ Rozinčin blbovník', { body: n.title });
+          } else {
+            alert('⏰ Upomínka: ' + n.title);
+          }
+        }
+      });
+    }, 15000);
+
+    // --- NAVIGACE ---
+    function switchTab(tab) {
+      document.getElementById('sec-blbovnik').classList.toggle('hidden', tab !== 'blbovnik');
+      document.getElementById('sec-ukoly').classList.toggle('hidden', tab !== 'ukoly');
+      document.getElementById('nav-blbovnik').classList.toggle('tab-active', tab === 'blbovnik');
+      document.getElementById('nav-ukoly').classList.toggle('tab-active', tab === 'ukoly');
+      if (tab === 'ukoly') syncWithGitHub();
+    }
+
+    function requestDadMode() {
+      const entered = prompt('Zadej PIN pro taťkovu zónu:');
+      if (entered === (state.config.pin || '1234')) {
+        switchRole('dad');
+      } else if (entered !== null) {
+        alert('Špatný PIN!');
+      }
+    }
+
+    function switchRole(role) {
+      document.getElementById('daughterView').classList.toggle('hidden', role !== 'daughter');
+      document.getElementById('dadView').classList.toggle('hidden', role !== 'dad');
+      document.getElementById('btnRoleDaughter').className = role === 'daughter' ? 'flex-1 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white' : 'flex-1 py-2 rounded-xl text-sm font-bold text-slate-600';
+      document.getElementById('btnRoleDad').className = role === 'dad' ? 'flex-1 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white' : 'flex-1 py-2 rounded-xl text-sm font-bold text-slate-600';
+    }
+
+    // --- BLBOVNÍK ---
+    function addNote() {
+      const title = document.getElementById('noteTitle').value.trim();
+      const text = document.getElementById('noteText').value.trim();
+      const date = document.getElementById('noteDate').value;
+      if (!title) return alert('Napiš aspoň nadpis poznámky.');
+
+      state.notes.unshift({ id: Date.now(), title, text, date, notified: false, createdAt: new Date().toISOString() });
+      document.getElementById('noteTitle').value = '';
+      document.getElementById('noteText').value = '';
+      document.getElementById('noteDate').value = '';
+      saveLocal();
+      renderNotes();
+      pushToGitHub();
+    }
+
+    function deleteNote(id) {
+      state.notes = state.notes.filter(n => n.id !== id);
+      saveLocal();
+      renderNotes();
+      pushToGitHub();
+    }
+
+    function renderNotes() {
+      const list = document.getElementById('notesList');
+      if (!state.notes.length) {
+        list.innerHTML = '<p class="text-center text-xs text-slate-400 py-6">Zatím tu nic není. Napiš si první myšlenku!</p>';
+        return;
+      }
+      list.innerHTML = state.notes.map(n => `
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 flex justify-between items-start gap-2">
+          <div>
+            <h4 class="font-bold text-sm text-slate-800">${escapeHtml(n.title)}</h4>
+            ${n.text ? `<p class="text-xs text-slate-600 mt-1">${escapeHtml(n.text)}</p>` : ''}
+            ${n.date ? `<span class="inline-block mt-2 text-[11px] bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-medium">⏰ ${new Date(n.date).toLocaleString('cs-CZ')}</span>` : ''}
+          </div>
+          <button onclick="deleteNote(${n.id})" class="text-slate-300 hover:text-red-500 text-sm">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    // --- TAŤKŮV GENERÁTOR ÚKOLŮ Z FOTKY ---
+    function previewPhoto(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('photoLabel').textContent = file.name;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        base64Image = ev.target.result.split(',')[1];
+        const img = document.getElementById('photoPreview');
+        img.src = ev.target.result;
+        img.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function generateTaskFromPhoto() {
+      const apiKey = state.config.geminiKey;
+      if (!apiKey) return alert('Nejprve v nastavení (⚙️) zadej Gemini API klíč.');
+      if (!base64Image) return alert('Vyfoť nebo vyber stránku z učebnice.');
+
+      const subject = document.getElementById('taskSubject').value.trim() || 'Úkol z učebnice';
+      const count = document.getElementById('questionCount').value;
+      const btn = document.getElementById('btnGenerate');
+      btn.disabled = true;
+      btn.textContent = '⏳ AI čte učebnici a tvoří otázky...';
+
+      const promptText = `Jsi laskavý učitel pro žákyni základní školy. Přečti text a úlohy na této fotografii z učebnice a vyber z učiva náhodně přesně ${count} kontrolních otázek.
+Vrať POUZE čistý validní JSON (bez markdownu) v této struktuře:
+{
+  "questions": [
+    {
+      "type": "choice",
+      "question": "Text otázky",
+      "options": ["Možnost A", "Možnost B", "Možnost C"],
+      "answer": "Možnost A",
+      "explanation": "Krátké vysvětlení správné odpovědi"
+    },
+    {
+      "type": "open",
+      "question": "Text otevřené/doplňovací otázky",
+      "answer": "Stručná správná odpověď",
+      "explanation": "Krátké vysvětlení"
+    }
+  ]
+}
+Kombinuj otázky typu "choice" (výběr ze 3 možností) a "open" (krátká odpověď). Piš česky.`;
+
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
+              ]
+            }]
+          })
+        });
+        const data = await res.json();
+        let raw = data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(raw);
+
+        draftTask = {
+          id: Date.now(),
+          subject,
+          createdAt: new Date().toISOString(),
+          completed: false,
+          score: null,
+          questions: parsed.questions
+        };
+
+        document.getElementById('previewQuestionsList').innerHTML = draftTask.questions.map((q, i) => `
+          <div class="p-2.5 bg-slate-50 rounded-xl border">
+            <strong>${i + 1}. ${escapeHtml(q.question)}</strong>
+            <div class="text-green-700 mt-1">Správně: ${escapeHtml(q.answer)}</div>
+          </div>
+        `).join('');
+        document.getElementById('generatedPreview').classList.remove('hidden');
+      } catch (err) {
+        alert('Chyba při komunikaci s Gemini AI: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ Vygenerovat úkol přes AI';
+      }
+    }
+
+    async function saveGeneratedTask() {
+      if (!draftTask) return;
+      state.tasks.unshift(draftTask);
+      draftTask = null;
+      document.getElementById('generatedPreview').classList.add('hidden');
+      document.getElementById('photoPreview').classList.add('hidden');
+      document.getElementById('taskSubject').value = '';
+      base64Image = null;
+      saveLocal();
+      renderTasks();
+      await pushToGitHub();
+      alert('Úkol byl uložen a odeslán Rozince!');
+      switchRole('daughter');
+    }
+
+    // --- ROZINČINO PLNĚNÍ ÚKOLŮ ---
+    function renderTasks() {
+      const list = document.getElementById('tasksList');
+      const uncompleted = state.tasks.filter(t => !t.completed).length;
+      document.getElementById('newBadge').classList.toggle('hidden', uncompleted === 0);
+
+      if (!state.tasks.length) {
+        list.innerHTML = '<p class="text-center text-xs text-slate-400 py-6">Zatím tu nemáš žádné úkoly od taťky 🎉</p>';
+        return;
+      }
+
+      list.innerHTML = state.tasks.map(t => `
+        <div class="bg-white p-4 rounded-2xl shadow-sm border ${t.completed ? 'border-green-200' : 'border-purple-200'} flex justify-between items-center">
+          <div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${t.completed ? 'bg-green-100 text-green-700' : 'bg-pink-100 text-pink-700'}">
+              ${t.completed ? `✅ Splněno (${t.score}%)` : '🔥 Nový úkol'}
+            </span>
+            <h4 class="font-bold text-sm mt-1">${escapeHtml(t.subject)}</h4>
+            <p class="text-[11px] text-slate-400">${t.questions.length} otázek • ${new Date(t.createdAt).toLocaleDateString('cs-CZ')}</p>
+          </div>
+          <button onclick="startQuiz(${t.id})" class="bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow">
+            ${t.completed ? 'Zkusit znovu' : 'Spustit'}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function startQuiz(taskId) {
+      activeQuizTask = state.tasks.find(t => t.id === taskId);
+      if (!activeQuizTask) return;
+      document.getElementById('quizResult').classList.add('hidden');
+      document.getElementById('quizTitle').textContent = activeQuizTask.subject;
+      
+      document.getElementById('quizQuestions').innerHTML = activeQuizTask.questions.map((q, idx) => {
+        if (q.type === 'choice' && q.options) {
+          return `
+            <div class="space-y-2">
+              <p class="font-semibold text-sm">${idx + 1}. ${escapeHtml(q.question)}</p>
+              ${q.options.map(opt => `
+                <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 text-xs cursor-pointer hover:bg-purple-50">
+                  <input type="radio" name="q_${idx}" value="${escapeHtml(opt)}" />
+                  <span>${escapeHtml(opt)}</span>
+                </label>
+              `).join('')}
+            </div>
+          `;
+        } else {
+          return `
+            <div class="space-y-2">
+              <p class="font-semibold text-sm">${idx + 1}. ${escapeHtml(q.question)}</p>
+              <input type="text" id="q_open_${idx}" placeholder="Napiš svou odpověď..." class="w-full p-2.5 rounded-xl border border-slate-200 text-xs" />
+            </div>
+          `;
+        }
+      }).join('');
+
+      document.getElementById('quizBox').classList.remove('hidden');
+    }
+
+    function closeQuiz() {
+      document.getElementById('quizBox').classList.add('hidden');
+    }
+
+    function submitQuiz() {
+      if (!activeQuizTask) return;
+      let correctCount = 0;
+      let detailsHtml = '';
+
+      activeQuizTask.questions.forEach((q, idx) => {
+        let userAns = '';
+        if (q.type === 'choice') {
+          const checked = document.querySelector(`input[name="q_${idx}"]:checked`);
+          userAns = checked ? checked.value : '';
+        } else {
+          userAns = document.getElementById(`q_open_${idx}`).value.trim();
+        }
+
+        const isCorrect = userAns.toLowerCase() === q.answer.trim().toLowerCase() ||
+                          (q.type === 'open' && userAns.length > 1 && q.answer.toLowerCase().includes(userAns.toLowerCase()));
+        if (isCorrect) correctCount++;
+
+        detailsHtml += `
+          <div class="p-3 rounded-xl text-xs ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}">
+            <p class="font-bold">${idx + 1}. ${escapeHtml(q.question)}</p>
+            <p class="mt-1">Tvoje odpověď: <strong>${escapeHtml(userAns || '(nevyplněno)')}</strong> ${isCorrect ? '✅' : '❌'}</p>
+            ${!isCorrect ? `<p class="text-green-700">Správná odpověď: <strong>${escapeHtml(q.answer)}</strong></p>` : ''}
+            <p class="text-slate-500 mt-1 italic">${escapeHtml(q.explanation || '')}</p>
+          </div>
+        `;
+      });
+
+      const pct = Math.round((correctCount / activeQuizTask.questions.length) * 100);
+      activeQuizTask.completed = true;
+      activeQuizTask.score = pct;
+      saveLocal();
+      renderTasks();
+      pushToGitHub();
+
+      document.getElementById('quizBox').classList.add('hidden');
+      const resBox = document.getElementById('quizResult');
+      resBox.innerHTML = `
+        <div class="text-center">
+          <div class="text-3xl mb-1">${pct >= 80 ? '🏆' : pct >= 50 ? '👍' : '💪'}</div>
+          <h3 class="font-bold text-lg text-purple-800">Výsledek: ${correctCount} z ${activeQuizTask.questions.length} (${pct} %)</h3>
+          <p class="text-xs text-slate-500">${pct >= 80 ? 'Skvělá práce, Rozinko!' : 'Dobrý pokus, mrkni na vysvětlení níže:'}</p>
+        </div>
+        <div class="space-y-2 mt-3">${detailsHtml}</div>
+      `;
+      resBox.classList.remove('hidden');
+    }
+
+    // --- GITHUB SYNCHRONIZACE (data.json v repozitáři) ---
+    async function pushToGitHub() {
+      const { ghOwner, ghRepo, ghToken } = state.config;
+      if (!ghOwner || !ghRepo || !ghToken) return;
+
+      const url = `https://api.github.com/repos/${ghOwner}/${ghRepo}/contents/data.json`;
+      const headers = { Authorization: `Bearer ${ghToken}`, 'Content-Type': 'application/json' };
+      document.getElementById('syncStatus').textContent = '⏳ Ukládám na GitHub...';
+
+      try {
+        let sha = null;
+        const getRes = await fetch(url, { headers });
+        if (getRes.ok) {
+          const existing = await getRes.json();
+          sha = existing.sha;
+        }
+
+        const payload = { notes: state.notes, tasks: state.tasks, updatedAt: new Date().toISOString() };
+        const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+
+        const putRes = await fetch(url, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            message: 'Aktualizace dat z Rozinčiny aplikace',
+            content: contentBase64,
+            ...(sha ? { sha } : {})
+          })
+        });
+
+        if (putRes.ok) {
+          document.getElementById('syncStatus').textContent = '✅ Synchronizováno s GitHubem';
+        }
+      } catch (e) {
+        document.getElementById('syncStatus').textContent = '⚠️ Chyba synchronizace GitHub';
+      }
+    }
+
+    async function syncWithGitHub() {
+      const { ghOwner, ghRepo, ghToken } = state.config;
+      if (!ghOwner || !ghRepo || !ghToken) return;
+
+      const url = `https://api.github.com/repos/${ghOwner}/${ghRepo}/contents/data.json`;
+      try {
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${ghToken}` } });
+        if (res.ok) {
+          const file = await res.json();
+          const decoded = JSON.parse(decodeURIComponent(escape(atob(file.content))));
+          if (decoded.notes) state.notes = decoded.notes;
+          if (decoded.tasks) state.tasks = decoded.tasks;
+          saveLocal();
+          renderNotes();
+          renderTasks();
+          document.getElementById('syncStatus').textContent = '✅ Načteno z GitHubu';
+        }
+      } catch (e) {}
+    }
+
+    // --- NASTAVENÍ & POMOCNÉ FUNKCE ---
+    function openSettings() {
+      document.getElementById('cfgGeminiKey').value = state.config.geminiKey || '';
+      document.getElementById('cfgGhOwner').value = state.config.ghOwner || '';
+      document.getElementById('cfgGhRepo').value = state.config.ghRepo || '';
+      document.getElementById('cfgGhToken').value = state.config.ghToken || '';
+      document.getElementById('cfgPin').value = state.config.pin || '1234';
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function saveSettings() {
+      state.config = {
+        geminiKey: document.getElementById('cfgGeminiKey').value.trim(),
+        ghOwner: document.getElementById('cfgGhOwner').value.trim(),
+        ghRepo: document.getElementById('cfgGhRepo').value.trim(),
+        ghToken: document.getElementById('cfgGhToken').value.trim(),
+        pin: document.getElementById('cfgPin').value.trim() || '1234'
+      };
+      localStorage.setItem('rozinka_cfg', JSON.stringify(state.config));
+      closeSettings();
+      syncWithGitHub();
+    }
+
+    function saveLocal() {
+      localStorage.setItem('rozinka_notes', JSON.stringify(state.notes));
+      localStorage.setItem('rozinka_tasks', JSON.stringify(state.tasks));
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    // Inicializace
+    renderNotes();
+    renderTasks();
+    syncWithGitHub();
+  </script>
+</body>
+</html>
