@@ -243,7 +243,7 @@
       btn.textContent = '⏳ AI čte učebnici a tvoří otázky...';
 
       const promptText = `Přečti text a úlohy na této fotografii z učebnice a vyber z učiva přesně ${count} kontrolních otázek pro žačku.
-Vrať POUZE čistý validní JSON (žádný markdown, žádné jiné texty) v této přesné strukture:
+Vrať POUZE čistý validní JSON (žádný markdown, žádné jiné texty) v této přesné struktuře:
 {
   "questions": [
     {
@@ -512,7 +512,7 @@ Piš česky.`;
       state.config = {
         geminiKey: document.getElementById('cfgGeminiKey').value.trim(),
         ghOwner: document.getElementById('cfgGhOwner').value.trim(),
-        ghRepo: document.getElementById('cfgGhRepo'].value.trim(),
+        ghRepo: document.getElementById('cfgGhRepo').value.trim(),
         ghToken: document.getElementById('cfgGhToken').value.trim(),
         pin: document.getElementById('cfgPin').value.trim() || '1234'
       };
